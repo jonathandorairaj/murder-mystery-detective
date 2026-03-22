@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Murder Mystery Detective</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:             #f7f3ec;
+      --surface:        #ffffff;
+      --surface2:       #f0ebe1;
+      --border:         #d6cbb8;
+      --border2:        #c4b49e;
+      --text:           #2c1810;
+      --text-dim:       #7a6555;
+      --red:            #8b1a1a;
+      --red-bright:     #a52020;
+      --gold:           #7a5c14;
+      --gold-dim:       #a07820;
+      --bubble-det-bg:  #f3eef8;
+      --bubble-det-bdr: #d0b8e8;
+      --bubble-det-txt: #3a1a5a;
+      --bubble-det-lbl: #7040a0;
+      --sidebar-w:      268px;
+      --header-h:       58px;
+    }
+
+    [data-theme="dark"] {
+      --bg:             #0b0b0f;
+      --surface:        #13131c;
+      --surface2:       #1a1a28;
+      --border:         #2a2a40;
+      --border2:        #3a3a55;
+      --text:           #e0d8cc;
+      --text-dim:       #8a8a9a;
+      --red:            #8b1a1a;
+      --red-bright:     #c0392b;
+      --gold:           #c9a84c;
+      --gold-dim:       #8a6a2a;
+      --bubble-det-bg:  #1c1020;
+      --bubble-det-bdr: #3a2040;
+      --bubble-det-txt: #d0b0e0;
+      --bubble-det-lbl: #9060b0;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      font-size: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    header {
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 2px solid var(--red);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    header .logo {
+      font-size: 19px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: var(--gold);
+      text-transform: uppercase;
+      flex: 1;
+    }
+
+    header .logo span { color: var(--red-bright); }
+
+    header .status {
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      font-style: italic;
+    }
+
+    /* ── Theme toggle button ──────────────────────────────────────── */
+    #btn-theme {
+      padding: 6px 11px;
+      font-size: 15px;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--text-dim);
+      transition: all 0.15s;
+      line-height: 1;
+    }
+    #btn-theme:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    /* ── Phoenix trace button ─────────────────────────────────────── */
+    #btn-trace {
+      display: none;
+      padding: 6px 12px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: Georgia, serif;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    #btn-trace:hover { background: rgba(122,92,20,0.08); }
+
+    /* ── Provider badge ───────────────────────────────────────────── */
+    #provider-badge {
+      display: none;
+      font-size: 11px;
+      font-style: italic;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 3px 9px;
+      white-space: nowrap;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────── */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      padding: 14px 16px 8px;
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sidebar-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .sidebar-scroll { overflow-y: auto; flex: 1; }
+
+    .mystery-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+      color: var(--text-dim);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .mystery-item:hover { background: var(--surface2); color: var(--text); }
+
+    .mystery-item.active {
+      border-left-color: var(--gold);
+      background: var(--surface2);
+      color: var(--gold);
+    }
+
+    .mystery-num {
+      font-size: 11px;
+      color: var(--red-bright);
+      margin-bottom: 2px;
+      letter-spacing: 1px;
+      font-style: normal;
+    }
+
+    /* Characters */
+    .char-item {
+      padding: 9px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    .char-item:hover { background: var(--surface2); color: var(--text); }
+
+    .char-item.active {
+      border-left-color: var(--red-bright);
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .char-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .char-item.active .char-avatar { border-color: var(--red-bright); }
+
+    .char-name { line-height: 1.3; font-size: 14px; }
+
+    /* Sidebar action buttons */
+    .sidebar-actions {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Main panel ───────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .tab {
+      padding: 13px 22px;
+      cursor: pointer;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* Panel areas */
+    .panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .panel.visible { display: flex; }
+
+    /* ── Overview panel ───────────────────────────────────────────── */
+    .overview-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 40px;
+      max-width: 760px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .overview-content h1 {
+      font-size: 22px;
+      color: var(--gold);
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+
+    .overview-content h2 {
+      font-size: 14px;
+      color: var(--red-bright);
+      margin: 24px 0 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .overview-content p { color: var(--text); line-height: 1.75; margin-bottom: 14px; font-size: 16px; }
+
+    .overview-content ul { padding-left: 22px; margin-bottom: 14px; }
+    .overview-content li { color: var(--text); line-height: 1.75; margin-bottom: 5px; }
+    .overview-content strong { color: var(--red); }
+
+    .welcome-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      color: var(--text-dim);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .welcome-screen .icon { font-size: 64px; opacity: 0.4; }
+
+    .welcome-screen h2 {
+      font-size: 16px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .welcome-screen p { max-width: 360px; line-height: 1.7; font-size: 13px; }
+
+    /* ── Chat panel ───────────────────────────────────────────────── */
+    .chat-header {
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .chat-header-name { color: var(--gold); font-size: 15px; letter-spacing: 1px; }
+    .chat-header-sub { font-size: 12px; color: var(--text-dim); font-style: italic; }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .msg { display: flex; gap: 10px; max-width: 85%; animation: fadeIn 0.2s ease; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .msg.detective { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.character { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .msg.detective .msg-avatar { background: var(--red); color: #fff; }
+    .msg.character .msg-avatar { background: var(--surface2); border: 1px solid var(--border2); }
+
+    .msg-bubble {
+      padding: 11px 15px;
+      border-radius: 2px;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .msg.detective .msg-bubble {
+      background: var(--bubble-det-bg);
+      border: 1px solid var(--bubble-det-bdr);
+      color: var(--bubble-det-txt);
+      border-radius: 8px 2px 8px 8px;
+    }
+
+    .msg.character .msg-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 2px 8px 8px 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .msg-label {
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .msg.detective .msg-label { color: var(--bubble-det-lbl); text-align: right; }
+    .msg.character .msg-label { color: var(--text-dim); }
+
+    /* Typing indicator */
+    .typing-indicator .msg-bubble {
+      padding: 14px;
+    }
+
+    .dots { display: flex; gap: 4px; }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text-dim);
+      animation: bounce 1.2s infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* Chat input */
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    textarea {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      font-size: 15px;
+      padding: 10px 14px;
+      resize: none;
+      outline: none;
+      border-radius: 4px;
+      transition: border-color 0.15s;
+      line-height: 1.5;
+      min-height: 44px;
+      max-height: 120px;
+    }
+
+    textarea:focus { border-color: var(--gold-dim); }
+
+    /* ── Buttons ──────────────────────────────────────────────────── */
+    .btn {
+      padding: 9px 16px;
+      font-family: Georgia, serif;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: 1px solid;
+      border-radius: 3px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--red-bright); border-color: var(--red-bright); }
+
+    .btn-secondary {
+      background: transparent;
+      border-color: var(--border2);
+      color: var(--text-dim);
+    }
+    .btn-secondary:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    .btn-gold {
+      background: transparent;
+      border-color: var(--gold-dim);
+      color: var(--gold);
+    }
+    .btn-gold:hover { background: rgba(122,92,20,0.08); }
+
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Accusation panel ─────────────────────────────────────────── */
+    .accuse-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 40px;
+      max-width: 700px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .accuse-content h2 {
+      font-size: 20px;
+      color: var(--gold);
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .accuse-content p { color: var(--text-dim); line-height: 1.75; margin-bottom: 20px; font-size: 16px; font-style: italic; }
+
+    .accuse-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: Georgia, 'Times New Roman', Times, serif;
+      font-size: 16px;
+      padding: 14px;
+      resize: vertical;
+      outline: none;
+      border-radius: 4px;
+      min-height: 100px;
+      margin-bottom: 16px;
+    }
+
+    .accuse-input:focus { border-color: var(--gold-dim); }
+
+    .solution-box {
+      margin-top: 24px;
+      padding: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--gold);
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+
+    .solution-box h1 {
+      font-size: 18px;
+      color: var(--gold);
+      margin-bottom: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .solution-box h2 {
+      font-size: 13px;
+      color: var(--red-bright);
+      margin: 18px 0 6px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .solution-box p { color: var(--text); line-height: 1.75; margin-bottom: 12px; font-size: 16px; }
+    .solution-box ol, .solution-box ul { padding-left: 22px; margin-bottom: 12px; }
+    .solution-box li { color: var(--text); line-height: 1.75; margin-bottom: 5px; }
+    .solution-box strong { color: var(--red); }
+
+    /* ── Scrollbars ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface2); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* ── No-mystery placeholder ───────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 14px;
+      padding: 20px 16px;
+      line-height: 1.6;
+      font-style: italic;
+    }
+
+    /* ── Divider ──────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<header>
+  <div class="logo">🔍 <span>Murder</span> Mystery</div>
+  <div class="status" id="status-bar">SELECT A CASE FILE</div>
+  <span id="provider-badge"></span>
+  <button id="btn-theme" onclick="toggleTheme()" title="Toggle dark / light mode">🌙</button>
+  <button id="btn-trace" onclick="openTrace()">🔭 Phoenix Traces ↗</button>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     LAYOUT
+════════════════════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ── Sidebar ────────────────────────────────────────────── -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Case Files</div>
+    </div>
+
+    <div id="mystery-list"></div>
+
+    <div class="divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Persons of Interest</div>
+    </div>
+
+    <div class="sidebar-scroll" id="char-list">
+      <div class="empty-state">Select a case file to view suspects.</div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn btn-gold" id="btn-overview" onclick="showTab('overview')" disabled>
+        📋 Case Overview
+      </button>
+      <button class="btn btn-primary" id="btn-accuse" onclick="showTab('accuse')" disabled>
+        ⚖ Make Accusation
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main panel ─────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs" style="display:none">
+      <div class="tab active" id="tab-overview" onclick="showTab('overview')">Overview</div>
+      <div class="tab" id="tab-chat" onclick="showTab('chat')">Interrogation</div>
+      <div class="tab" id="tab-accuse" onclick="showTab('accuse')">Accusation</div>
+    </div>
+
+    <!-- ── Welcome screen ─────────────────────────────────── -->
+    <div id="welcome" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;color:var(--text-dim);text-align:center;padding:40px">
+      <div style="font-size:64px;opacity:0.3">🔍</div>
+      <h2 style="font-size:16px;letter-spacing:3px;text-transform:uppercase">Detective Agency</h2>
+      <p style="max-width:360px;line-height:1.7;font-size:13px">
+        Select a case file from the sidebar to begin your investigation.<br>
+        Question witnesses and suspects — each one can only tell you what they know.
+      </p>
+    </div>
+
+    <!-- ── Overview panel ─────────────────────────────────── -->
+    <div class="panel" id="panel-overview">
+      <div class="overview-content" id="overview-content">
+        <div class="empty-state">Loading case file…</div>
+      </div>
+    </div>
+
+    <!-- ── Chat panel ─────────────────────────────────────── -->
+    <div class="panel" id="panel-chat">
+      <div class="chat-header" id="chat-header">
+        <div class="char-avatar" id="chat-avatar">👤</div>
+        <div>
+          <div class="chat-header-name" id="chat-header-name">—</div>
+          <div class="chat-header-sub">Under interrogation</div>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary" onclick="resetChat()" title="Clear conversation">↺ Reset</button>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <div class="empty-state" id="chat-empty" style="padding:40px;color:var(--text-dim)">
+          Select a person of interest from the sidebar to begin questioning.
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <textarea
+          id="question-input"
+          placeholder="Ask your question… (Enter to send, Shift+Enter for newline)"
+          rows="1"
+          oninput="autoResize(this)"
+          onkeydown="handleKey(event)"
+          disabled
+        ></textarea>
+        <button class="btn btn-primary" id="btn-ask" onclick="sendQuestion()" disabled>Ask →</button>
+      </div>
+    </div>
+
+    <!-- ── Accusation panel ───────────────────────────────── -->
+    <div class="panel" id="panel-accuse">
+      <div class="accuse-content">
+        <h2>Make Your Accusation</h2>
+        <p>Name the killer, state the method, and explain your reasoning. Then reveal the solution.</p>
+        <textarea
+          class="accuse-input"
+          id="accusation-text"
+          placeholder="I believe the killer is… because…"
+        ></textarea>
+        <button class="btn btn-primary" onclick="revealSolution()">Reveal Solution →</button>
+        <div id="solution-output"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════════════ */
+const API = '/api';
+
+const state = {
+  mysteries: [],
+  selectedMystery: null,
+  characters: [],
+  selectedCharacter: null,
+  messages: {},        // key: `${mysteryId}:${charId}` → [{role, content, chunks?}]
+  loading: false,
+  currentTab: null,
+  traceUrl: null,      // set from /api/config if tracing is enabled
+};
+
+/* ══════════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════════ */
+async function init() {
+  // Load config (trace URL) and mystery list in parallel
+  const [configRes, mysteriesRes] = await Promise.allSettled([
+    fetch(`${API}/config`),
+    fetch(`${API}/mysteries`),
+  ]);
+
+  if (configRes.status === 'fulfilled' && configRes.value.ok) {
+    const cfg = await configRes.value.json();
+    if (cfg.trace_url) {
+      state.traceUrl = cfg.trace_url;
+      document.getElementById('btn-trace').style.display = 'inline-block';
+    }
+    if (cfg.provider && cfg.model) {
+      document.getElementById('provider-badge').textContent =
+        `${cfg.provider} / ${cfg.model}`;
+      document.getElementById('provider-badge').style.display = 'inline-block';
+    }
+  }
+
+  if (mysteriesRes.status === 'fulfilled' && mysteriesRes.value.ok) {
+    state.mysteries = await mysteriesRes.value.json();
+    renderMysteryList();
+  } else {
+    document.getElementById('mystery-list').innerHTML =
+      `<div class="empty-state" style="color:#c0392b">Cannot connect to server.<br>Run: python server.py</div>`;
+  }
+}
+
+function openTrace() {
+  if (state.traceUrl) window.open(state.traceUrl, '_blank');
+}
+
+/* ── Theme toggle ─────────────────────────────────────────────── */
+function toggleTheme() {
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  applyTheme(next);
+  localStorage.setItem('mm-theme', next);
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.getElementById('btn-theme').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+// Apply saved preference on load
+(function () {
+  const saved = localStorage.getItem('mm-theme') || 'light';
+  applyTheme(saved);
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER MYSTERY LIST
+══════════════════════════════════════════════════════════════ */
+function renderMysteryList() {
+  const el = document.getElementById('mystery-list');
+  el.innerHTML = state.mysteries.map((m, i) => `
+    <div class="mystery-item ${state.selectedMystery === m.id ? 'active' : ''}"
+         onclick="selectMystery('${m.id}')">
+      <div class="mystery-num">CASE ${i + 1}</div>
+      ${m.title}
+    </div>
+  `).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SELECT MYSTERY
+══════════════════════════════════════════════════════════════ */
+async function selectMystery(id) {
+  if (state.selectedMystery === id) return;
+  state.selectedMystery = id;
+  state.selectedCharacter = null;
+
+  renderMysteryList();
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('btn-overview').disabled = false;
+  document.getElementById('btn-accuse').disabled = false;
+  document.getElementById('solution-output').innerHTML = '';
+  document.getElementById('accusation-text').value = '';
+
+  const m = state.mysteries.find(x => x.id === id);
+  document.getElementById('status-bar').textContent = m ? m.title.toUpperCase() : '';
+
+  // Load overview
+  document.getElementById('overview-content').innerHTML = '<div class="empty-state">Loading…</div>';
+  showTab('overview');
+  try {
+    const res = await fetch(`${API}/mysteries/${id}/overview`);
+    const { markdown } = await res.json();
+    document.getElementById('overview-content').innerHTML = marked.parse(markdown);
+  } catch (e) {
+    document.getElementById('overview-content').innerHTML = '<div class="empty-state">Failed to load overview.</div>';
+  }
+
+  // Load characters
+  document.getElementById('char-list').innerHTML = '<div class="empty-state">Loading…</div>';
+  try {
+    const res2 = await fetch(`${API}/mysteries/${id}/characters`);
+    state.characters = await res2.json();
+    renderCharList();
+  } catch (e) {
+    document.getElementById('char-list').innerHTML = '<div class="empty-state">Failed to load characters.</div>';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER CHARACTER LIST
+══════════════════════════════════════════════════════════════ */
+const AVATARS = ['🎩','👩','🧑','👨','🕵️','👴','👵','🧔','👮','🧑‍⚕️','🧑‍💼'];
+
+function charAvatar(name) {
+  // deterministic emoji from name
+  return AVATARS[name.charCodeAt(0) % AVATARS.length];
+}
+
+function renderCharList() {
+  const el = document.getElementById('char-list');
+  // Use data-attributes instead of inline JS strings to avoid quote-escaping
+  // bugs (e.g. names containing apostrophes like "John's Wife").
+  el.innerHTML = state.characters.map(c => `
+    <div class="char-item ${state.selectedCharacter === c.id ? 'active' : ''}"
+         data-char-id="${escAttr(c.id)}"
+         data-char-name="${escAttr(c.display_name)}"
+         onclick="handleCharClick(this)">
+      <div class="char-avatar" style="flex-shrink:0">${charAvatar(c.display_name)}</div>
+      <div class="char-name">${escHtml(c.display_name)}</div>
+    </div>
+  `).join('');
+}
+
+function handleCharClick(el) {
+  selectCharacter(el.dataset.charId, el.dataset.charName);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SELECT CHARACTER
+══════════════════════════════════════════════════════════════ */
+function selectCharacter(id, name) {
+  state.selectedCharacter = id;
+  renderCharList();
+
+  // Update chat header
+  document.getElementById('chat-avatar').textContent = charAvatar(name);
+  document.getElementById('chat-header-name').textContent = name;
+
+  // Enable input
+  document.getElementById('question-input').disabled = false;
+  document.getElementById('btn-ask').disabled = false;
+  document.getElementById('question-input').focus();
+
+  // Render existing messages or empty state
+  renderMessages();
+  showTab('chat');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════════════════════ */
+function showTab(tab) {
+  state.currentTab = tab;
+  ['overview', 'chat', 'accuse'].forEach(t => {
+    document.getElementById(`panel-${t}`).classList.toggle('visible', t === tab);
+    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'chat' && state.selectedCharacter) {
+    document.getElementById('question-input').focus();
+    scrollChat();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SEND QUESTION
+══════════════════════════════════════════════════════════════ */
+async function sendQuestion() {
+  const input = document.getElementById('question-input');
+  const question = input.value.trim();
+  if (!question || state.loading || !state.selectedCharacter) return;
+
+  const key = `${state.selectedMystery}:${state.selectedCharacter}`;
+  if (!state.messages[key]) state.messages[key] = [];
+
+  state.messages[key].push({ role: 'detective', content: question });
+  input.value = '';
+  input.style.height = '';
+  renderMessages();
+  showTyping();
+
+  state.loading = true;
+  document.getElementById('btn-ask').disabled = true;
+  document.getElementById('question-input').disabled = true;
+
+  try {
+    const res = await fetch(`${API}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mystery_id: state.selectedMystery,
+        character_id: state.selectedCharacter,
+        question,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const { reply, chunks } = await res.json();
+    removeTyping();
+    state.messages[key].push({ role: 'character', content: reply, chunks: chunks || [] });
+    renderMessages();
+  } catch (e) {
+    removeTyping();
+    state.messages[key].push({ role: 'character', content: `[Error: ${e.message}]` });
+    renderMessages();
+  } finally {
+    state.loading = false;
+    document.getElementById('btn-ask').disabled = false;
+    document.getElementById('question-input').disabled = false;
+    document.getElementById('question-input').focus();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER MESSAGES
+══════════════════════════════════════════════════════════════ */
+function renderMessages() {
+  const key = `${state.selectedMystery}:${state.selectedCharacter}`;
+  const msgs = state.messages[key] || [];
+  const el = document.getElementById('chat-messages');
+
+  if (msgs.length === 0) {
+    el.innerHTML = `<div id="chat-empty" style="padding:40px;color:var(--text-dim);text-align:center;font-size:12px">
+      Begin your interrogation. Ask anything you suspect may be relevant to the case.
+    </div>`;
+    return;
+  }
+
+  const charName = state.characters.find(c => c.id === state.selectedCharacter)?.display_name || 'Witness';
+  const avatar = charAvatar(charName);
+
+  el.innerHTML = msgs.map(m => {
+    const isDetective = m.role === 'detective';
+    return `
+      <div class="msg ${m.role}">
+        <div class="msg-avatar">${isDetective ? '🕵️' : avatar}</div>
+        <div style="min-width:0;flex:1">
+          <div class="msg-label">${isDetective ? 'Detective' : charName}</div>
+          <div class="msg-bubble">${escHtml(m.content).replace(/\n/g, '<br>')}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  scrollChat();
+}
+
+function showTyping() {
+  const el = document.getElementById('chat-messages');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'msg character typing-indicator';
+  typingEl.id = 'typing';
+  typingEl.innerHTML = `
+    <div class="msg-avatar">💭</div>
+    <div>
+      <div class="msg-label">Thinking…</div>
+      <div class="msg-bubble"><div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div></div>
+    </div>`;
+  el.appendChild(typingEl);
+  scrollChat();
+}
+
+function removeTyping() {
+  document.getElementById('typing')?.remove();
+}
+
+function scrollChat() {
+  const el = document.getElementById('chat-messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESET CHAT
+══════════════════════════════════════════════════════════════ */
+async function resetChat() {
+  if (!state.selectedCharacter) return;
+  const key = `${state.selectedMystery}:${state.selectedCharacter}`;
+  state.messages[key] = [];
+  renderMessages();
+
+  await fetch(`${API}/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mystery_id: state.selectedMystery, character_id: state.selectedCharacter }),
+  }).catch(() => {});
+}
+
+/* ══════════════════════════════════════════════════════════════
+   REVEAL SOLUTION
+══════════════════════════════════════════════════════════════ */
+async function revealSolution() {
+  if (!state.selectedMystery) return;
+  try {
+    const res = await fetch(`${API}/mysteries/${state.selectedMystery}/solution`);
+    const { markdown } = await res.json();
+    const html = marked.parse(markdown);
+    document.getElementById('solution-output').innerHTML =
+      `<div class="solution-box">${html}</div>`;
+  } catch (e) {
+    document.getElementById('solution-output').innerHTML =
+      `<div class="empty-state" style="color:#c0392b;margin-top:16px">Failed to load solution.</div>`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INPUT HELPERS
+══════════════════════════════════════════════════════════════ */
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendQuestion();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// For values placed inside HTML attribute quotes — also escapes ' and "
+function escAttr(s) {
+  return escHtml(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   START
+══════════════════════════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>

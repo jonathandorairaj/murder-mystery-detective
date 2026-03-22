@@ -1,0 +1,38 @@
+# ── Vector database (generated — rebuild with: python setup_db.py) ───────────
+chroma_db/
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+*.env
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Editors ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs & temp ──────────────────────────────────────────────────────────────
+*.log
+*.tmp
+
+# ── Stale mystery folders (removed from the game) ────────────────────────────
+mystery_2_velvet_curtain/
+mystery_4_midnight_cruise/
+mystery_6_orient_express/

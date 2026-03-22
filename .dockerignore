@@ -1,0 +1,25 @@
+# Never copy the local DB into the image — it's mounted as a named volume
+chroma_db/
+
+# Python bytecode
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env
+*.env
+
+# Git history
+.git/
+.gitignore
+
+# Removed mystery folders (no longer in the game)
+mystery_2_velvet_curtain/
+mystery_4_midnight_cruise/
+mystery_6_orient_express/
+
+# Local dev artefacts
+*.log
+.DS_Store

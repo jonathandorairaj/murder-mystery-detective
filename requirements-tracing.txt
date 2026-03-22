@@ -1,0 +1,4 @@
+# Optional: install these to enable Phoenix tracing (--trace / --evaluate flags)
+# pip install -r requirements-tracing.txt
+arize-phoenix>=4.0.0
+opentelemetry-sdk>=1.20.0

@@ -1,0 +1,41 @@
+services:
+
+  # ── One-off DB setup: chunk + index all mysteries into ChromaDB ───────────
+  # Runs once and exits. The app service waits for it to complete.
+  # Re-run at any time with:  docker compose run --rm setup
+  setup:
+    build: .
+    container_name: mystery-setup
+    command: python setup_db.py
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - chroma_data:/app/chroma_db
+    restart: "no"
+
+  # ── FastAPI web server ────────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: mystery-app
+    restart: unless-stopped
+    ports:
+      - "7777:7777"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Set LLM_PROVIDER to "openai" or "anthropic" and supply the matching
+      # API key in your .env file (OPENAI_API_KEY / ANTHROPIC_API_KEY).
+      # To use a self-hosted Ollama instance set OLLAMA_HOST to its URL.
+      LLM_PROVIDER: "${LLM_PROVIDER:-openai}"
+      LLM_MODEL: "${LLM_MODEL:-}"   # leave blank to use the provider default
+      PORT: "7777"
+    volumes:
+      - chroma_data:/app/chroma_db
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+volumes:
+  chroma_data:
