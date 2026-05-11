@@ -3,17 +3,17 @@
 > *Six mysteries. Dozens of suspects. Every character only knows what they should.*
 
 
-<p>
-  <img src="screenshots/cli.png" width="48%" />
-  <img src="screenshots/web.png" width="48%" />
-</p>
-
 ![Start](screenshots/Main%20Page%20Dark%20Mode.png)
+
 ![Interrogation](screenshots/Chat%20Interrogation.png)
 
 A fully playable murder mystery detective game where each suspect and witness is powered by their own **RAG (Retrieval-Augmented Generation) agent** with **role-based access control**. Play as the detective: question characters, gather clues, and make your accusation — all through a terminal CLI or a browser-based web UI.
 
 Built to explore how RAG + RBAC + multi-provider LLM inference can create believable, knowledge-bounded AI characters.
+
+#### Website 
+
+Try it out for yourself at **[https://detective.jonathandorairaj.cloud/]**
 
 ---
 
@@ -231,7 +231,7 @@ murder-mysteries/
 
 ## GitHub
 
-> 🔗 **[github.com/your-username/murder-mysteries](#)** ← add your link here
+> 🔗 **[github.com/jonathandorairaj/murder-mystery-detective](#)** ← add your link here
 
 ---
 
