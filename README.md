@@ -1,10 +1,10 @@
 # 🔍 Murder Mystery Detective — RAG-Powered Interrogation Game
 
-> *Eight mysteries. Dozens of suspects. Every character only knows what they should.*
+> *Six mysteries. Dozens of suspects. Every character only knows what they should.*
 
 <!-- SCREENSHOTS
-![CLI gameplay](screenshots/cli.png)
-![Web UI](screenshots/web.png)
+![Start](screenshots/Main Page Dark Mode.png)
+![Interrogation](screenshots/Chat Interrogation.png)
 -->
 
 A fully playable murder mystery detective game where each suspect and witness is powered by their own **RAG (Retrieval-Augmented Generation) agent** with **role-based access control**. Play as the detective: question characters, gather clues, and make your accusation — all through a terminal CLI or a browser-based web UI.
@@ -31,13 +31,11 @@ When you're ready, make your accusation. The solution file reveals whether you w
 | # | Mystery | Setting | Era |
 |---|---------|---------|-----|
 | 1 | **The Thornwood Manor Murder** | English country manor | 1923 |
-| 2 | **The Velvet Curtain** | Hollywood film set | 1950s |
-| 3 | **Silicon Secrets** | Tech startup HQ | Present day |
-| 4 | **Death at Midnight Cruise** | Luxury ocean liner | Present day |
-| 5 | **The Crimson Gallery** | Art gallery gala | Present day |
-| 6 | **The Styles Court Affair** | English country house | 1916 |
-| 7 | **The Hound of the Baskervilles** | Dartmoor, Devon | 1889 |
-| 8 | **The Disappearing Cat** | English country estate | 1920s |
+| 2 | **Silicon Secrets** | Tech startup HQ | Present day |
+| 3 | **The Crimson Gallery** | Art gallery gala | Present day |
+| 4 | **The Styles Court Affair** | English country house | 1916 |
+| 5 | **The Hound of the Baskervilles** | Dartmoor, Devon | 1889 |
+| 6 | **The Disappearing Cat** | English country estate | 1920s |
 
 Each mystery ships with: a case overview, 5–6 fully backstoried characters (with individual secrets, motives, and knowledge gaps), and a solution file.
 
