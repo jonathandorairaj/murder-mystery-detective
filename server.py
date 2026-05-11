@@ -3,16 +3,18 @@ server.py — FastAPI backend for the Murder Mystery Detective game.
 
 Run with:
     python server.py
-    python server.py --trace        # enable Phoenix tracing
     python server.py --evaluate     # LLM-as-judge eval on each response
 
-Then open http://localhost:8000
+Tracing is enabled automatically when OTEL_EXPORTER_OTLP_ENDPOINT is set
+in the environment (configured via docker-compose). Traces, metrics, and
+HTTP instrumentation are shipped to the otel-lgtm collector over OTLP/HTTP.
+
+Then open http://localhost:7777
 """
 
 import argparse
 import os
 import sys
-import webbrowser
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -42,7 +44,6 @@ parser.add_argument("--provider", choices=["ollama", "openai", "anthropic"],
                     default=None, help="LLM provider (default: $LLM_PROVIDER or ollama)")
 parser.add_argument("--model", default=None,
                     help="Model name override (default: $LLM_MODEL or per-provider default)")
-parser.add_argument("--trace", action="store_true", help="Enable Phoenix tracing (http://localhost:6006)")
 parser.add_argument("--evaluate", action="store_true", help="Run LLM-as-judge eval after each response")
 parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "7777")),
                     help="Port to listen on (default: $PORT or 7777)")
@@ -52,13 +53,10 @@ args = parser.parse_args()
 PROVIDER: Provider = args.provider or os.getenv("LLM_PROVIDER", "ollama")
 MODEL: str = args.model or os.getenv("LLM_MODEL") or DEFAULT_MODELS[PROVIDER]
 
-TRACE_URL = "http://localhost:6006"
-
-if args.trace or args.evaluate:
+# Auto-enable tracing when running in Docker (env var set in docker-compose).
+# The --evaluate flag also activates tracing so judge scores appear in spans.
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") or args.evaluate:
     init_tracing()
-    print(f"Tracing enabled → {TRACE_URL}")
-    if args.trace:
-        webbrowser.open_new_tab(TRACE_URL)
 
 # ---------------------------------------------------------------------------
 # Bootstrap the RAG system (module-level so it's shared across requests)
@@ -98,6 +96,14 @@ def _get_agent(mystery_id: str, char_id: str) -> CharacterAgent:
 
 app = FastAPI(title="Murder Mystery API", docs_url="/api/docs")
 
+# Auto-instrument FastAPI — emits HTTP request duration + count metrics and
+# creates a server span for every request, parented under any incoming trace context.
+try:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    FastAPIInstrumentor.instrument_app(app)
+except ImportError:
+    pass  # silently skip if package not installed
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -113,7 +119,6 @@ app.add_middleware(
 def get_config():
     """Runtime configuration consumed by the frontend."""
     return {
-        "trace_url": TRACE_URL if (args.trace or args.evaluate) else None,
         "provider": PROVIDER,
         "model": MODEL,
     }

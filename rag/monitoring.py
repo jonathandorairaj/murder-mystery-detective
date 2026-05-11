@@ -1,77 +1,92 @@
 """
 Observability for the Murder Mystery RAG system.
 
-Uses Arize Phoenix (local, open-source) as the tracing backend.
-Phoenix launches a local web UI at http://localhost:6006 where you can see:
-  - Every detective question as a root CHAIN span
-  - RAG retrieval as a RETRIEVER child span (with the retrieved chunks)
-  - The LLM call as an LLM child span (model, messages, response, latency)
-  - Evaluation scores (context_relevance, groundedness) as span attributes
+Ships telemetry to the otel-lgtm stack (Grafana + Tempo + Prometheus + Loki)
+via the standard OpenTelemetry OTLP HTTP exporter.
 
-Start Phoenix before playing:
-    python -m phoenix.server.main serve
-    # OR: call init_tracing() and it auto-launches an in-process server.
+Configure via environment variables (set in docker-compose):
+    OTEL_EXPORTER_OTLP_ENDPOINT   e.g. http://otel-lgtm:4318
+    OTEL_SERVICE_NAME             e.g. murder-mystery (default)
 
-OpenInference semantic convention attributes are used so Phoenix renders the
-spans correctly in its built-in LLM trace viewer.
+Every detective question produces a root CHAIN span with child spans for:
+  - rag.retrieval  — the ChromaDB vector query and retrieved chunks
+  - llm.call       — provider, model, latency, input/output messages
+  - eval.judge     — LLM-as-judge scores (if --evaluate is passed)
 """
 
 import json
+import os
 import time
 from contextlib import contextmanager, nullcontext
 
 from .llm import chat as llm_chat, Provider
 
 # ---------------------------------------------------------------------------
-# Optional Phoenix / OpenTelemetry import — degrades gracefully if not installed
+# OpenTelemetry SDK — degrades gracefully if packages are not installed
 # ---------------------------------------------------------------------------
 
 try:
-    import phoenix as px
     from opentelemetry import trace
-    from phoenix.otel import register
-    _PHOENIX_AVAILABLE = True
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    _OTEL_AVAILABLE = True
 except ImportError:
-    _PHOENIX_AVAILABLE = False
-    # Stub so the rest of the module compiles even without phoenix installed
-    class _TraceFallback:  # noqa: E302
-        class Span:
-            def is_recording(self): return False
-            def set_attribute(self, *a, **kw): pass
-        def start_as_current_span(self, *a, **kw): return nullcontext()
-    class _TracerFallback:  # noqa: E302
-        def get_tracer(self, *a): return _TraceFallback()
-    trace = _TracerFallback()  # type: ignore
+    _OTEL_AVAILABLE = False
+
+    # Minimal stubs so the rest of the module compiles without the SDK installed
+    class _Span:
+        def is_recording(self): return False
+        def set_attribute(self, *a, **kw): pass
+        def record_exception(self, *a, **kw): pass
+
+    class _Tracer:
+        def start_as_current_span(self, *a, **kw): return nullcontext(_Span())
+
+    class _TraceFallback:
+        def get_tracer(self, *a): return _Tracer()
+
+    trace = _TraceFallback()  # type: ignore
 
 # ---------------------------------------------------------------------------
-# Global tracer (None until init_tracing() is called)
+# Global tracer — None until init_tracing() is called
 # ---------------------------------------------------------------------------
 
 _tracer = None
 
 
-def init_tracing(project: str = "murder-mystery"):
+def init_tracing(service_name: str = None) -> object:
     """
-    Launch Phoenix (if not already running) and register a global OTel
-    tracer provider that ships spans to it.
-    Call once at the start of main.py or server.py.
-    No-ops silently if arize-phoenix is not installed.
+    Build a TracerProvider that exports spans to the otel-lgtm collector over
+    OTLP/HTTP, then register it as the global OTel provider.
+
+    Called once at startup in server.py when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+    Safe to call multiple times — returns the existing tracer on subsequent calls.
     """
     global _tracer
     if _tracer is not None:
         return _tracer
-    if not _PHOENIX_AVAILABLE:
-        print("⚠  arize-phoenix not installed — tracing disabled. "
-              "Install it with: pip install arize-phoenix opentelemetry-sdk")
+
+    if not _OTEL_AVAILABLE:
+        print("⚠  opentelemetry-sdk not installed — tracing disabled.")
         return None
 
-    # Launch the Phoenix UI in-process (opens http://localhost:6006)
-    px.launch_app()
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-lgtm:4318")
+    service  = service_name or os.getenv("OTEL_SERVICE_NAME", "murder-mystery")
 
-    # Register the OTel tracer provider → Phoenix
-    register(project_name=project)
+    # The SDK appends /v1/traces automatically when you pass a base URL
+    exporter = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
+    resource  = Resource.create({"service.name": service})
+    provider  = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(exporter))
 
-    _tracer = trace.get_tracer("murder-mystery")
+    # Register as the global provider so opentelemetry.trace.get_tracer() works
+    # everywhere, including inside the FastAPI auto-instrumentation
+    trace.set_tracer_provider(provider)
+
+    _tracer = trace.get_tracer(service)
+    print(f"✓  Tracing → {endpoint}  (service: {service})")
     return _tracer
 
 
@@ -80,15 +95,17 @@ def get_tracer():
 
 
 # ---------------------------------------------------------------------------
-# Convenience context manager
+# Convenience span context manager
 # ---------------------------------------------------------------------------
 
 @contextmanager
 def span(name: str, kind: str = "CHAIN", **attributes):
     """
-    Yields an OTel span if tracing is initialised, otherwise a no-op context.
-    `kind` maps to the OpenInference span kind attribute (CHAIN, LLM, RETRIEVER).
-    Extra keyword arguments are set as span attributes.
+    Yields an OTel span if tracing is initialised, otherwise a silent no-op.
+
+    `kind` is stored as the openinference.span.kind attribute so Grafana Tempo
+    can categorise spans as CHAIN / LLM / RETRIEVER in the trace view.
+    Extra keyword arguments become span attributes.
     """
     t = get_tracer()
     if t is None:
@@ -103,13 +120,11 @@ def span(name: str, kind: str = "CHAIN", **attributes):
             yield s
         except Exception as exc:
             s.record_exception(exc)
-            if _PHOENIX_AVAILABLE:
-                s.set_status(trace.StatusCode.ERROR, str(exc))
             raise
 
 
 # ---------------------------------------------------------------------------
-# LLM-as-judge evaluator
+# LLM-as-judge evaluator (optional, activated with --evaluate)
 # ---------------------------------------------------------------------------
 
 _EVAL_PROMPT = """\
@@ -139,15 +154,12 @@ def evaluate_response(
     current_span=None,
 ) -> dict[str, int]:
     """
-    Run a quick LLM-as-judge evaluation using the active provider and return scores.
-    If a span is provided, scores are recorded as attributes on it.
-
-    Note: OpenAI and Anthropic don't support a native JSON-mode equivalent here,
-    so we ask the model to reply with only JSON and parse the first {...} block.
+    Run an LLM-as-judge evaluation and return context_relevance + groundedness scores.
+    Scores are also written to the provided span as attributes if one is active.
     """
     prompt = _EVAL_PROMPT.format(
         question=question,
-        context=context[:1500],   # keep the judge prompt short
+        context=context[:1500],
         response=response,
     )
 
@@ -160,21 +172,20 @@ def evaluate_response(
         )
         elapsed = time.perf_counter() - t0
 
-        # Extract the first JSON object from the response
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
+        start  = raw.find("{")
+        end    = raw.rfind("}") + 1
         scores = json.loads(raw[start:end])
         scores = {
             "context_relevance": int(scores.get("context_relevance", 0)),
-            "groundedness": int(scores.get("groundedness", 0)),
+            "groundedness":      int(scores.get("groundedness", 0)),
         }
     except Exception:
-        scores = {"context_relevance": -1, "groundedness": -1}
+        scores  = {"context_relevance": -1, "groundedness": -1}
         elapsed = 0.0
 
     if current_span and current_span.is_recording():
         current_span.set_attribute("eval.context_relevance", scores["context_relevance"])
-        current_span.set_attribute("eval.groundedness", scores["groundedness"])
-        current_span.set_attribute("eval.latency_s", round(elapsed, 3))
+        current_span.set_attribute("eval.groundedness",      scores["groundedness"])
+        current_span.set_attribute("eval.latency_s",         round(elapsed, 3))
 
     return scores

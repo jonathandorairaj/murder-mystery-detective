@@ -31,11 +31,24 @@ services:
       LLM_PROVIDER: "${LLM_PROVIDER:-openai}"
       LLM_MODEL: "${LLM_MODEL:-}"   # leave blank to use the provider default
       PORT: "7777"
+      # ── Observability ────────────────────────────────────────────────────
+      # Ships traces to the otel-lgtm collector over OTLP/HTTP.
+      # The container name "otel-lgtm" resolves via the shared internal-net.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-lgtm:4318"
+      OTEL_SERVICE_NAME: "murder-mystery"
     volumes:
       - chroma_data:/app/chroma_db
+    networks:
+      - default
+      - internal-net
     depends_on:
       setup:
         condition: service_completed_successfully
 
 volumes:
   chroma_data:
+
+networks:
+  default:
+  internal-net:
+    external: true
