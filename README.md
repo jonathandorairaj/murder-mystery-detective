@@ -2,10 +2,9 @@
 
 > *Six mysteries. Dozens of suspects. Every character only knows what they should.*
 
-<!-- SCREENSHOTS
+
 ![Start](screenshots/Main Page Dark Mode.png)
 ![Interrogation](screenshots/Chat Interrogation.png)
--->
 
 A fully playable murder mystery detective game where each suspect and witness is powered by their own **RAG (Retrieval-Augmented Generation) agent** with **role-based access control**. Play as the detective: question characters, gather clues, and make your accusation — all through a terminal CLI or a browser-based web UI.
 
