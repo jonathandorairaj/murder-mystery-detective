@@ -724,12 +724,33 @@
 ══════════════════════════════════════════════════════════════ */
 const API = '/api';
 
+// Conversations live in the browser (the server is stateless), and are kept
+// in localStorage so a reload doesn't wipe the interrogation.
+const MESSAGES_KEY = 'mm-messages';
+
+function loadMessages() {
+  try { return JSON.parse(localStorage.getItem(MESSAGES_KEY)) || {}; }
+  catch { return {}; }
+}
+
+function saveMessages() {
+  try { localStorage.setItem(MESSAGES_KEY, JSON.stringify(state.messages)); }
+  catch { /* storage full or blocked — the chat still works for this visit */ }
+}
+
+// Prior turns in the API's format, skipping error placeholders.
+function historyFor(key) {
+  return (state.messages[key] || [])
+    .filter(m => !m.error)
+    .map(m => ({ role: m.role === 'detective' ? 'user' : 'assistant', content: m.content }));
+}
+
 const state = {
   mysteries: [],
   selectedMystery: null,
   characters: [],
   selectedCharacter: null,
-  messages: {},        // key: `${mysteryId}:${charId}` → [{role, content, chunks?}]
+  messages: loadMessages(),  // key: `${mysteryId}:${charId}` → [{role, content, chunks?, error?}]
   loading: false,
   currentTab: null,
   traceUrl: null,      // set from /api/config if tracing is enabled
@@ -921,6 +942,7 @@ async function sendQuestion() {
   const key = `${state.selectedMystery}:${state.selectedCharacter}`;
   if (!state.messages[key]) state.messages[key] = [];
 
+  const history = historyFor(key);
   state.messages[key].push({ role: 'detective', content: question });
   input.value = '';
   input.style.height = '';
@@ -939,6 +961,7 @@ async function sendQuestion() {
         mystery_id: state.selectedMystery,
         character_id: state.selectedCharacter,
         question,
+        history,
       }),
     });
 
@@ -949,9 +972,10 @@ async function sendQuestion() {
     renderMessages();
   } catch (e) {
     removeTyping();
-    state.messages[key].push({ role: 'character', content: `[Error: ${e.message}]` });
+    state.messages[key].push({ role: 'character', content: `[Error: ${e.message}]`, error: true });
     renderMessages();
   } finally {
+    saveMessages();
     state.loading = false;
     document.getElementById('btn-ask').disabled = false;
     document.getElementById('question-input').disabled = false;
@@ -1021,17 +1045,12 @@ function scrollChat() {
 /* ══════════════════════════════════════════════════════════════
    RESET CHAT
 ══════════════════════════════════════════════════════════════ */
-async function resetChat() {
+function resetChat() {
   if (!state.selectedCharacter) return;
   const key = `${state.selectedMystery}:${state.selectedCharacter}`;
   state.messages[key] = [];
+  saveMessages();
   renderMessages();
-
-  await fetch(`${API}/reset`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mystery_id: state.selectedMystery, character_id: state.selectedCharacter }),
-  }).catch(() => {});
 }
 
 /* ══════════════════════════════════════════════════════════════

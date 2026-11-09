@@ -24,7 +24,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 import uvicorn
 
 from rag import CharacterVectorStore, RBAC, CharacterAgent
@@ -47,7 +49,7 @@ parser.add_argument("--model", default=None,
 parser.add_argument("--evaluate", action="store_true", help="Run LLM-as-judge eval after each response")
 parser.add_argument("--port", type=int, default=int(os.getenv("PORT", "7777")),
                     help="Port to listen on (default: $PORT or 7777)")
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 
 # CLI flag → env var → hardcoded default (makes Docker configuration clean)
 PROVIDER: Provider = args.provider or os.getenv("LLM_PROVIDER", "ollama")
@@ -59,7 +61,8 @@ if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT") or args.evaluate:
     init_tracing()
 
 # ---------------------------------------------------------------------------
-# Bootstrap the RAG system (module-level so it's shared across requests)
+# Bootstrap the RAG system (module-level so it's shared across requests).
+# Agents are stateless, so one per character is shared by every player.
 # ---------------------------------------------------------------------------
 
 store = CharacterVectorStore(db_path=str(BASE_DIR / "chroma_db"))
@@ -160,10 +163,22 @@ def get_solution(mystery_id: str):
     return {"markdown": path.read_text()}
 
 
+# The browser owns each player's conversation and sends it with every question,
+# so the server keeps no per-player state and any instance can answer.
+MAX_HISTORY_MESSAGES = 40
+MAX_MESSAGE_CHARS = 4000
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=MAX_MESSAGE_CHARS)
+
+
 class AskRequest(BaseModel):
     mystery_id: str
     character_id: str
-    question: str
+    question: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
+    history: list[ChatMessage] = []
 
 
 @app.post("/api/ask")
@@ -171,25 +186,13 @@ def ask(req: AskRequest):
     if req.mystery_id not in MYSTERIES:
         raise HTTPException(404, detail="Mystery not found")
     agent = _get_agent(req.mystery_id, req.character_id)
-    reply = agent.ask(req.question)
+    history = [m.model_dump() for m in req.history[-MAX_HISTORY_MESSAGES:]]
+    reply, chunks = agent.respond(req.question, history)
     return {
         "reply": reply,
         "character": agent.role.display_name,
-        "chunks": agent.last_retrieved,   # RAG evidence chunks for the UI
+        "chunks": chunks,   # RAG evidence chunks for the UI
     }
-
-
-class ResetRequest(BaseModel):
-    mystery_id: str
-    character_id: str
-
-
-@app.post("/api/reset")
-def reset(req: ResetRequest):
-    key = f"{req.mystery_id}:{req.character_id}"
-    if key in _agents:
-        _agents[key].reset_conversation()
-    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

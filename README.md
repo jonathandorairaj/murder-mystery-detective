@@ -24,7 +24,7 @@ You are the detective. Choose a mystery, select a character to question, and int
 - **Only knows what they should know** — their knowledge is scoped to their own ChromaDB vector collection, enforced at the RBAC layer
 - **Stays in character** — the LLM is grounded by a retrieved context window drawn exclusively from that character's documents
 - **Has something to hide, or doesn't** — some are guilty and will deflect; others are witnesses who will open up under the right questioning
-- **Remembers the conversation** — conversation history persists per character per session
+- **Remembers the conversation** — each player keeps their own conversation with every character, saved in their browser
 
 When you're ready, make your accusation. The solution file reveals whether you were right.
 
