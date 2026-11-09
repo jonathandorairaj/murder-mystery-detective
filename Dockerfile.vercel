@@ -1,0 +1,31 @@
+FROM python:3.12-slim
+
+# System deps needed by chromadb (sqlite3 + hnswlib compilation)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies (cached layer — only invalidated when requirements change)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application source (excludes everything listed in .dockerignore)
+COPY . .
+
+# Bake the ChromaDB index and the embedding model (~170 MB) into the image.
+# Vercel containers are stateless and scale to zero, so there is no volume
+# to hold chroma_db/ and no setup service like in docker-compose.
+RUN python setup_db.py
+
+# Vercel routes traffic to port 80.
+# Provider/model are configured via Vercel project environment variables:
+#   LLM_PROVIDER=openai|anthropic
+#   LLM_MODEL=<model name>          (optional, falls back to per-provider default)
+#   OPENAI_API_KEY / ANTHROPIC_API_KEY
+ENV PORT=80
+EXPOSE 80
+
+CMD ["python", "server.py"]
