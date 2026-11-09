@@ -43,15 +43,27 @@ class CharacterAgent:
         self.model: str = model or DEFAULT_MODELS[provider]
         self.n_retrieve = n_retrieve
         self.evaluate = evaluate
-        self.conversation_history: list[dict] = []
-        self.last_retrieved: list[str] = []   # set on every ask(); readable by the server
+        self.conversation_history: list[dict] = []   # used by ask() (CLI) only
+        self.last_retrieved: list[str] = []   # set on every ask()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def ask(self, detective_question: str) -> str:
-        """Ask the character a question and return their answer."""
+        """Ask the character a question, remembering the conversation on this agent (CLI)."""
+        reply, retrieved = self.respond(detective_question, self.conversation_history)
+        self.last_retrieved = retrieved
+        self.conversation_history.append({"role": "user", "content": detective_question})
+        self.conversation_history.append({"role": "assistant", "content": reply})
+        return reply
+
+    def respond(self, detective_question: str, history: list[dict]) -> tuple[str, list[str]]:
+        """Answer a question given the prior conversation, without storing any state.
+
+        Returns (reply, retrieved_chunks). Safe to call concurrently from the web
+        server, where each player's browser sends its own history.
+        """
 
         # Root span for the full ask() call
         with span(
@@ -83,7 +95,6 @@ class CharacterAgent:
                     detective_question,
                     n_results=self.n_retrieve,
                 )
-                self.last_retrieved = retrieved   # expose to callers
                 if rag_span:
                     rag_span.set_attribute("retrieval.num_chunks", len(retrieved))
                     # Log each chunk using OpenInference retrieval convention
@@ -94,8 +105,11 @@ class CharacterAgent:
             system_prompt = self._build_system_prompt(context_block)
 
             # 3. LLM call
-            self.conversation_history.append({"role": "user", "content": detective_question})
-            messages = [{"role": "system", "content": system_prompt}] + self.conversation_history
+            messages = (
+                [{"role": "system", "content": system_prompt}]
+                + history
+                + [{"role": "user", "content": detective_question}]
+            )
 
             with span(
                 "llm.call",
@@ -116,7 +130,6 @@ class CharacterAgent:
                     llm_span.set_attribute("output.value", reply)
                     llm_span.set_attribute("llm.provider", self.provider)
 
-            self.conversation_history.append({"role": "assistant", "content": reply})
 
             # 4. Optional LLM-as-judge evaluation
             if self.evaluate:
@@ -136,7 +149,7 @@ class CharacterAgent:
             if root:
                 root.set_attribute("output.value", reply)
 
-        return reply
+        return reply, retrieved
 
     def reset_conversation(self) -> None:
         self.conversation_history = []
