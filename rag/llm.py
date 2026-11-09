@@ -64,10 +64,17 @@ def _anthropic(messages: list[dict], model: str) -> str:
         else:
             convo.append(m)
 
-    kwargs: dict = dict(model=model, max_tokens=1024, messages=convo)
+    # max_tokens covers thinking as well as the reply, so leave plenty of room
+    kwargs: dict = dict(model=model, max_tokens=16000, messages=convo)
     if system:
         kwargs["system"] = system
 
     # Reads ANTHROPIC_API_KEY from environment automatically
     response = anthropic.Anthropic().messages.create(**kwargs)
-    return response.content[0].text
+
+    # Current models think by default, so content can start with a thinking
+    # block; the reply is the text blocks only.
+    reply = "".join(b.text for b in response.content if b.type == "text")
+    if not reply:
+        raise RuntimeError(f"Anthropic returned no text (stop_reason={response.stop_reason})")
+    return reply
